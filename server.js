@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
-
+const { calculateForestCoverage } = require("./utils");
 const app = express();
 const PORT = 3000;
 
@@ -25,8 +25,8 @@ app.get("/api/cloudinary/images", async (req, res) => {
     for (const resource of result.resources) {
       const publicId = resource.public_id;
       const parts = publicId.split("/");
-      const filename = parts[parts.length - 1];   // phần cuối: "rgb" hoặc "mask"
-      const dateFolder = parts[2];                 // phần thứ 3 là ngày tháng
+      const filename = parts[parts.length - 1]; // phần cuối: "rgb" hoặc "mask"
+      const dateFolder = parts[2]; // phần thứ 3 là ngày tháng
 
       if (!results[dateFolder]) {
         results[dateFolder] = {};
@@ -36,13 +36,19 @@ app.get("/api/cloudinary/images", async (req, res) => {
         results[dateFolder].rgb = resource.secure_url;
       } else if (filename === "mask") {
         results[dateFolder].mask = resource.secure_url;
+        // Get forest coverage
+        results[dateFolder].forestCoverage = await calculateForestCoverage(
+          resource.secure_url,
+          6,
+          8
+        );
       }
     }
 
     res.json(results);
   } catch (error) {
-    console.error("Lỗi Cloudinary:", error);
-    res.status(500).json({ error: "Không thể lấy ảnh từ Cloudinary" });
+    console.error("Lỗi:", error);
+    res.status(500).json({ error: "Không thể xử lý yêu cầu" });
   }
 });
 

@@ -1,9 +1,11 @@
-const { createCanvas, loadImage } = require("canvas");
-const fs = require("fs").promises;
-const path = require("path");
-const crypto = require("crypto");
+import { createCanvas, loadImage } from "canvas";
+import { promises as fs } from "fs";
+import { join, dirname } from "path";
+import { createHash } from "crypto";
+import { fileURLToPath } from "url";
 
-const CACHE_FILE = path.join(__dirname, "cache.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CACHE_FILE = join(__dirname, "cache.json");
 
 async function readCache() {
   try {
@@ -21,7 +23,7 @@ async function writeCache(cache) {
 
 function generateCacheKey(maskUrl, x_split, y_split) {
   const input = `${maskUrl}-${x_split}-${y_split}`;
-  return crypto.createHash("md5").update(input).digest("hex");
+  return createHash("md5").update(input).digest("hex");
 }
 
 async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
@@ -102,4 +104,4 @@ async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
   }
 }
 
-module.exports = { calculateForestCoverage };
+export { calculateForestCoverage };

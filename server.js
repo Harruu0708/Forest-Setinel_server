@@ -1,7 +1,10 @@
-const express = require("express");
-const cors = require("cors");
-const cloudinary = require("cloudinary").v2;
-const { calculateForestCoverage } = require("./utils");
+import express from "express";
+import cors from "cors";
+import { v2 as cloudinary } from "cloudinary";
+import { calculateForestCoverage } from "./utils.js";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const config = require("./config.json");
 const app = express();
 const PORT = 3000;
 
@@ -39,8 +42,8 @@ app.get("/api/cloudinary/images", async (req, res) => {
         // Get forest coverage
         results[dateFolder].forestCoverage = await calculateForestCoverage(
           resource.secure_url,
-          6,
-          8
+          config.x_split,
+          config.y_split
         );
       }
     }

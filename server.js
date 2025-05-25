@@ -27,40 +27,39 @@ app.get("/api/cloudinary/images", async (req, res) => {
     });
 
     const results = {};
-
     for (const resource of result.resources) {
-      const publicId = resource.public_id; // ví dụ: forest/2024-05-24/mask_1_2
+      const publicId = resource.public_id;
       const parts = publicId.split("/");
-      const dateFolder = parts[2]; // Thư mục ngày tháng
+
+      const dateFolder = parts[2]; // phần thứ 3 là ngày tháng
+      const filename = parts[parts.length - 1]; // "rgb", "mask", hoặc "mask_0_0"
 
       if (!results[dateFolder]) {
         results[dateFolder] = {
-          rgb: null,
-          masks: {}, // lưu ảnh theo tọa độ x_y
-          forestCoverage: {},
+          masks: {}, // chứa mask_x_y
         };
       }
 
-      const filename = parts[parts.length - 1]; // ví dụ: mask_1_2 hoặc rgb
+      // Ảnh rgb
       if (filename === "rgb") {
         results[dateFolder].rgb = resource.secure_url;
-      } else if (filename.startsWith("mask_")) {
-        // Parse x_y từ tên file
-        const coordMatch = filename.match(/^mask_(\d+)_(\d+)$/);
-        if (coordMatch) {
-          const x = parseInt(coordMatch[1]);
-          const y = parseInt(coordMatch[2]);
-          const coord = `${x},${y}`;
-          results[dateFolder].masks[coord] = resource.secure_url;
+      }
 
-          // Gọi calculateForestCoverage cho từng patch nếu cần
-          const coverage = await calculateForestCoverage(
-            resource.secure_url,
-            1,
-            1 // mỗi mask là một ô grid, không cần chia nhỏ nữa
-          );
-          results[dateFolder].forestCoverage[coord] = coverage["0,0"]; // Vì 1x1 thì chỉ có 1 ô
-        }
+      // Ảnh mask.png gốc
+      else if (filename === "mask") {
+        results[dateFolder].mask = resource.secure_url;
+        // Tính forest coverage cho ảnh mask gốc
+        results[dateFolder].forestCoverage = await calculateForestCoverage(
+          resource.secure_url,
+          config.x_split,
+          config.y_split
+        );
+      }
+
+      // Ảnh chia theo grid: mask_0_0, mask_1_2,...
+      else if (/^mask_\d+_\d+$/.test(filename)) {
+        const coords = filename.replace("mask_", "").replace(".png", "");
+        results[dateFolder].masks[coords] = resource.secure_url;
       }
     }
 
@@ -70,6 +69,7 @@ app.get("/api/cloudinary/images", async (req, res) => {
     res.status(500).json({ error: "Không thể xử lý yêu cầu" });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

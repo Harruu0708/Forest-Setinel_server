@@ -1,4 +1,4 @@
 # Forest-Setinel_server
 Cách cài đặt:
-npm install
+npm install  
 node server.js

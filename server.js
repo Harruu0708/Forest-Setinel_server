@@ -19,53 +19,57 @@ cloudinary.config({
 });
 
 app.get("/api/cloudinary/images", async (req, res) => {
+  const region = req.query.region;
+
+  if (!region) {
+    return res.status(400).json({ error: "Thiếu tham số 'region'" });
+  }
+
   try {
     // Lấy tất cả ảnh bằng pagination
     let allResources = [];
     let nextCursor = null;
-    
+
     do {
       const result = await cloudinary.api.resources({
         type: "upload",
         resource_type: "image",
+        prefix: `${region}/`, // Chỉ lấy ảnh trong khu vực này
         max_results: 500,
-        next_cursor: nextCursor
+        next_cursor: nextCursor,
       });
-      
+
       allResources = allResources.concat(result.resources);
       nextCursor = result.next_cursor;
-      
-      console.log(`Đã lấy ${allResources.length} ảnh...`);
+
+      console.log(`Đã lấy ${allResources.length} ảnh cho khu vực ${region}...`);
     } while (nextCursor);
 
-    console.log(`Tổng số ảnh tìm thấy: ${allResources.length}`);
+    console.log(`Tổng số ảnh khu vực ${region}: ${allResources.length}`);
 
     const results = {};
     for (const resource of allResources) {
       const publicId = resource.public_id;
       const parts = publicId.split("/");
 
-      const dateFolder = parts[2]; // phần thứ 3 là ngày tháng
+      if (parts[0] !== region) continue; // Đảm bảo đúng khu vực truyền vào
+
+      const dateFolder = parts[1]; // VD: "2025"
       let filename = parts[parts.length - 1]; // "rgb", "mask", hoặc "mask_0_0"
-      
-      // Loại bỏ extension
+
+      // Bỏ đuôi ảnh
       filename = filename.replace(/\.(png|jpg|jpeg)$/i, "");
 
       if (!results[dateFolder]) {
-        results[dateFolder] = {
-          masks: {}, // chứa mask_x_y
-        };
+        results[dateFolder] = { masks: {} };
       }
 
-      // Ảnh rgb
       if (filename === "rgb") {
         results[dateFolder].rgb = resource.secure_url;
-      }
-
-      // Ảnh mask.png gốc
-      else if (filename === "mask") {
+      } else if (filename === "mask") {
         results[dateFolder].mask = resource.secure_url;
-        // Tính forest coverage cho ảnh mask gốc
+
+        // Tính toán mật độ rừng
         try {
           results[dateFolder].forestCoverage = await calculateForestCoverage(
             resource.secure_url,
@@ -76,22 +80,20 @@ app.get("/api/cloudinary/images", async (req, res) => {
           console.error(`Lỗi tính forest coverage cho ${dateFolder}:`, error);
           results[dateFolder].forestCoverage = null;
         }
-      }
-
-      // Ảnh chia theo grid: mask_0_0, mask_1_2,...
-      else if (/^mask_\d+_\d+$/.test(filename)) {
+      } else if (/^mask_\d+_\d+$/.test(filename)) {
         const coords = filename.replace("mask_", "");
         results[dateFolder].masks[coords] = resource.secure_url;
       }
     }
 
-    console.log("Các năm tìm thấy:", Object.keys(results).sort());
+    console.log(`Các năm trong khu vực ${region}:`, Object.keys(results).sort());
     res.json(results);
   } catch (error) {
     console.error("Lỗi:", error);
     res.status(500).json({ error: "Không thể xử lý yêu cầu" });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

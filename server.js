@@ -13,9 +13,9 @@ const PORT = 3000;
 app.use(cors());
 
 cloudinary.config({
-  cloud_name: "dndoab4ux",
-  api_key: "869142631932877",
-  api_secret: "uYDAP5qqtwQbzimq32dlp0y51To",
+  cloud_name: "dqcccey6y",
+  api_key: "135765298986124",
+  api_secret: "-Dlc4HtlvWrCtvGOsMJkbR4tkMg",
 });
 
 app.get("/api/cloudinary/images", async (req, res) => {
@@ -73,8 +73,8 @@ app.get("/api/cloudinary/images", async (req, res) => {
         try {
           results[dateFolder].forestCoverage = await calculateForestCoverage(
             resource.secure_url,
-            config.x_split,
-            config.y_split
+            256,
+            256
           );
         } catch (error) {
           console.error(`Lỗi tính forest coverage cho ${dateFolder}:`, error);

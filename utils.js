@@ -21,16 +21,16 @@ async function writeCache(cache) {
   await fs.writeFile(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
-function generateCacheKey(maskUrl, x_split, y_split) {
-  const input = `${maskUrl}-${x_split}-${y_split}`;
+function generateCacheKey(maskUrl, gridWidth, gridHeight) {
+  const input = `${maskUrl}-${gridWidth}-${gridHeight}`;
   return createHash("md5").update(input).digest("hex");
 }
 
-async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
+async function calculateForestCoverage(maskUrl, gridWidth = 256, gridHeight = 256) {
   try {
     // Check cache first
     const cache = await readCache();
-    const cacheKey = generateCacheKey(maskUrl, x_split, y_split);
+    const cacheKey = generateCacheKey(maskUrl, gridWidth, gridHeight);
 
     if (cache[cacheKey]) {
       console.log("Returning cached result");
@@ -49,21 +49,19 @@ async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
 
-    // Calculate patch dimensions
-    const patchWidth = Math.floor(img.width / x_split);
-    const patchHeight = Math.floor(img.height / y_split);
-
     const results = {};
 
-    // Process each patch
-    for (let y = 0; y < y_split; y++) {
-      for (let x = 0; x < x_split; x++) {
-        const startX = x * patchWidth;
-        const startY = y * patchHeight;
-
-        // For the last patch in each dimension, extend to image edge
-        const endX = x === x_split - 1 ? img.width : (x + 1) * patchWidth;
-        const endY = y === y_split - 1 ? img.height : (y + 1) * patchHeight;
+    // Chia ảnh thành các grid 256x256 pixel
+    let y = 0;
+    let gridY = 0;
+    while (y < img.height) {
+      let x = 0;
+      let gridX = 0;
+      while (x < img.width) {
+        const startX = x;
+        const startY = y;
+        const endX = Math.min(x + gridWidth, img.width);
+        const endY = Math.min(y + gridHeight, img.height);
 
         const actualPatchWidth = endX - startX;
         const actualPatchHeight = endY - startY;
@@ -71,11 +69,9 @@ async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
 
         let greenPixels = 0;
 
-        // Count green pixels in this patch
         for (let py = startY; py < endY; py++) {
           for (let px = startX; px < endX; px++) {
             const pixelIndex = (py * img.width + px) * 4;
-
             const red = pixels[pixelIndex];
             const green = pixels[pixelIndex + 1];
             const blue = pixels[pixelIndex + 2];
@@ -88,9 +84,14 @@ async function calculateForestCoverage(maskUrl, x_split = 1, y_split = 1) {
         }
 
         const greenPercentage = (greenPixels / patchPixels) * 100;
-        const coordinate = `${x},${y}`;
-        results[coordinate] = Math.round(greenPercentage * 100) / 100; // Round to 2 decimal places
+        const coordinate = `${gridY}_${gridX}`;
+        results[coordinate] = Math.round(greenPercentage * 100) / 100;
+
+        x += gridWidth;
+        gridX++;
       }
+      y += gridHeight;
+      gridY++;
     }
 
     // Cache the results before returning
